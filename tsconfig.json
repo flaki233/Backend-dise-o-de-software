@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "module": "commonjs",
+    "lib": ["ES2017", "DOM"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // 🔹 Agregados recomendados:
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "removeComments": true,
+    "sourceMap": true,
+    "outDir": "./dist",          // ⬅️ guarda los .js compilados aquí
+    "incremental": true          // mejora tiempos de recompilación
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "active" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "bio" TEXT,
+ADD COLUMN     "location" TEXT,
+ADD COLUMN     "name" TEXT,
+ADD COLUMN     "reputationScore" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN     "tradesClosed" INTEGER NOT NULL DEFAULT 0;
