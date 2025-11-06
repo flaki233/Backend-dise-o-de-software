@@ -3,24 +3,19 @@ import axios from 'axios';
 
 @Injectable()
 export class RecaptchaService {
-  private readonly secretKey = process.env.RECAPTCHA_SECRET_KEY;
-
   async validateToken(token: string) {
-    const url = `https://www.google.com/recaptcha/api/siteverify`;
-    const response = await axios.post(
-      url,
-      null,
-      {
-        params: {
-          secret: this.secretKey,
-          response: token,
-        },
-      },
-    );
+    // ⚙️ Modo desarrollo: saltar validación real
+    if (process.env.NODE_ENV === 'development' || process.env.RECAPTCHA_TEST === 'true') {
+      console.log('🧪 Modo desarrollo: validación reCAPTCHA saltada');
+      return true;
+    }
 
-    const data = response.data;
+    const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+    const url = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${token}`;
 
-    if (!data.success || data.score < 0.5) {
+    const response = await axios.post(url);
+
+    if (!response.data.success) {
       throw new UnauthorizedException('Error de verificación CAPTCHA');
     }
 
