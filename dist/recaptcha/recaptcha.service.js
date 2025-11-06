@@ -13,19 +13,15 @@ exports.RecaptchaService = void 0;
 const common_1 = require("@nestjs/common");
 const axios_1 = __importDefault(require("axios"));
 let RecaptchaService = class RecaptchaService {
-    constructor() {
-        this.secretKey = process.env.RECAPTCHA_SECRET_KEY;
-    }
     async validateToken(token) {
-        const url = `https://www.google.com/recaptcha/api/siteverify`;
-        const response = await axios_1.default.post(url, null, {
-            params: {
-                secret: this.secretKey,
-                response: token,
-            },
-        });
-        const data = response.data;
-        if (!data.success || data.score < 0.5) {
+        if (process.env.NODE_ENV === 'development' || process.env.RECAPTCHA_TEST === 'true') {
+            console.log('🧪 Modo desarrollo: validación reCAPTCHA saltada');
+            return true;
+        }
+        const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+        const url = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${token}`;
+        const response = await axios_1.default.post(url);
+        if (!response.data.success) {
             throw new common_1.UnauthorizedException('Error de verificación CAPTCHA');
         }
         return true;
