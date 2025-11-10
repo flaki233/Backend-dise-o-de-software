@@ -22,44 +22,51 @@ export class ImagenOfertaService {
 
   // Método privado para procesar imagen base64 y guardarla localmente
   private async processBase64Image(base64String: string, fileName: string): Promise<string> {
-    try {
-      // Verificar que el base64 tiene el formato correcto
-      const base64Data = base64String.includes(',') 
-        ? base64String.split(',')[1] 
-        : base64String;
+  try {
+    // Verificar que el base64 tiene el formato correcto
+    const base64Data = base64String.includes(',') 
+      ? base64String.split(',')[1] 
+      : base64String;
 
-      // Extraer el tipo de imagen del header base64
-      const mimeMatch = base64String.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,/);
-      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-      
-      // Obtener la extensión del archivo
-      const extension = mimeType.split('/')[1] || 'jpg';
-      
-      // Generar nombre único para evitar conflictos
-      const timestamp = Date.now();
-      const uniqueFileName = `${fileName.replace(/\.[^/.]+$/, "")}_${timestamp}.${extension}`;
-      
-      // Crear directorio si no existe
-      const uploadDir = path.join(process.cwd(), 'uploads', 'images');
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      
-      // Ruta completa del archivo
-      const filePath = path.join(uploadDir, uniqueFileName);
-      const relativePath = path.join('uploads', 'images', uniqueFileName);
-      
-      // Convertir base64 a buffer y guardar archivo
-      const buffer = Buffer.from(base64Data, 'base64');
-      fs.writeFileSync(filePath, buffer);
-      
-      // Retornar la ruta relativa para guardar en la base de datos
-      return relativePath;
-      
-    } catch (error) {
-      throw new BadRequestException('Error al procesar la imagen base64: ' + error.message);
+    // Calcular el tamaño aproximado en bytes del base64 (cada 4 caracteres = 3 bytes)
+    const fileSizeInBytes = (base64Data.length * 3) / 4;
+    const maxSizeInBytes = 2 * 1024 * 1024; // 2 MB
+
+    if (fileSizeInBytes > maxSizeInBytes) {
+      throw new BadRequestException('La imagen supera el tamaño máximo permitido de 2 MB.');
     }
+
+    // Extraer el tipo de imagen del header base64
+    const mimeMatch = base64String.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    
+    // Obtener la extensión del archivo
+    const extension = mimeType.split('/')[1] || 'jpg';
+    
+    // Generar nombre único
+    const timestamp = Date.now();
+    const uniqueFileName = `${fileName.replace(/\.[^/.]+$/, '')}_${timestamp}.${extension}`;
+    
+    // Crear directorio si no existe
+    const uploadDir = path.join(process.cwd(), 'uploads', 'images');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    
+    // Ruta completa
+    const filePath = path.join(uploadDir, uniqueFileName);
+    const relativePath = path.join('uploads', 'images', uniqueFileName);
+    
+    // Guardar archivo
+    const buffer = Buffer.from(base64Data, 'base64');
+    fs.writeFileSync(filePath, buffer);
+    
+    return relativePath;
+  } catch (error) {
+    throw new BadRequestException('Error al procesar la imagen base64: ' + error.message);
   }
+}
+
 
   // Método privado para extraer el nombre del archivo desde base64 o usar el proporcionado
   private extractFileName(base64String: string, providedName: string): string {
