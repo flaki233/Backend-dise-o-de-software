@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards, ForbiddenException, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { TradesService } from './trades.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -10,6 +10,11 @@ import { ConfirmTradeDto, CreateTradeDto, DecisionDto } from './dtos';
 @Controller('trades')
 export class TradesController {
   constructor(private readonly trades: TradesService) {}
+
+  @Get('me')
+  findMine(@Req() req: any) {
+    return this.trades.findAllForUser(req.user.userId);
+  }
 
   @Post()
   create(@Body() dto: CreateTradeDto) {

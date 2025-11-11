@@ -8,6 +8,22 @@ export class TradesService {
     private readonly robleRepo: RobleRepository,
   ) {}
 
+  async findAllForUser(userId: string) {
+    const userIdStr = String(userId);
+    const [asProposer, asResponder] = await Promise.all([
+      this.robleRepo.findTradesByProposer(userIdStr),
+      this.robleRepo.findTradesByResponder(userIdStr),
+    ]);
+
+    const tradesMap = new Map<string, any>();
+    [...(asProposer || []), ...(asResponder || [])].forEach((trade: any) => {
+      const id = String((trade as any)._id || trade.id);
+      tradesMap.set(id, trade);
+    });
+
+    return Array.from(tradesMap.values());
+  }
+
   async create(dto: CreateTradeDto) {
     if (dto.proposerId === dto.responderId) {
       throw new BadRequestException('No puedes proponer un trueque contigo mismo');
