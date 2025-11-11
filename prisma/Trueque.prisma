@@ -1,0 +1,32 @@
+// schema.prisma
+
+enum TradeStatus {
+  PENDING
+  CONFIRMED   // ambas partes confirmaron
+  CANCELLED   // una parte lo rechazó o se canceló
+}
+
+model Trade {
+  id                 Int          @id @default(autoincrement())
+  proposerId         Int
+  responderId        Int
+  // Información de lo que ofrece cada uno (ajusta al modelo que tengas)
+  proposerOfferJson  Json
+  responderOfferJson Json
+
+  // Confirmaciones independientes
+  proposerConfirmed  Boolean      @default(false)
+  responderConfirmed Boolean      @default(false)
+
+  status             TradeStatus  @default(PENDING)
+  closedAt           DateTime?
+
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  proposer           User         @relation("ProposerTrades", fields: [proposerId], references: [id])
+  responder          User         @relation("ResponderTrades", fields: [responderId], references: [id])
+
+  @@index([proposerId])
+  @@index([responderId])
+}

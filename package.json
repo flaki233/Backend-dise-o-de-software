@@ -26,6 +26,7 @@
     "express": "^5.1.0",
     "nodemailer": "^7.0.10",
     "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1"
@@ -35,6 +36,7 @@
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.1.8",
     "@types/nodemailer": "^7.0.3",
+    "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "prisma": "^6.18.0",
     "ts-node": "^10.9.2",
