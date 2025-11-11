@@ -7,8 +7,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// MODELOS ----------------------------------------------------------
-
 model User {
   id                Int      @id @default(autoincrement())
   email             String   @unique
@@ -17,28 +15,31 @@ model User {
   verificationToken String?  @unique
   createdAt         DateTime @default(now())
 
-  // Recuperación de contraseña
   resetToken    String?   @unique
   resetTokenExp DateTime?
 
-  // --- NUEVOS CAMPOS DE PERFIL ---
   name     String?
   location String?
   bio      String?
 
-  // --- REPUTACIÓN ---
   reputationScore Float @default(0)
   tradesClosed    Int   @default(0)
 
-  // --- ESTADO DE CUENTA ---
   active Boolean @default(true)
 
-  // -- Relaciones con la tabla Trade --
+  role UserRole @default(OFERENTE)
+
   proposerTrades  Trade[] @relation("ProposerTrades")
   responderTrades Trade[] @relation("ResponderTrades")
+
+  ofertas Oferta[]
 }
 
-// ENUMS
+enum UserRole {
+  OFERENTE
+  BUSCADOR
+  ADMINISTRADOR
+}
 
 enum TradeStatus {
   PENDING
@@ -46,7 +47,11 @@ enum TradeStatus {
   CANCELLED
 }
 
-// MODELO DE TRUEQUES
+enum OfferStatus {
+  BORRADOR
+  PUBLICADA
+  PAUSADA
+}
 
 model Trade {
   id          Int @id @default(autoincrement())
@@ -74,9 +79,6 @@ model Trade {
   @@index([responderId])
 }
 
-
-
-// 👇 NUEVO modelo de registro de cierre
 model TradeClosure {
   id          Int         @id @default(autoincrement())
   tradeId     Int         @unique
@@ -85,7 +87,64 @@ model TradeClosure {
   offerA      Json
   offerB      Json
   closedAt    DateTime
-  finalStatus TradeStatus  // usamos el enum que ya tienes (PENDING/CONFIRMED/CANCELLED)
+  finalStatus TradeStatus
   trade       Trade       @relation(fields: [tradeId], references: [id])
   createdAt   DateTime    @default(now())
+}
+
+model CategoriaOferta {
+  id        Int      @id @default(autoincrement())
+  nombre    String   @db.VarChar(100)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  activo    Boolean  @default(true)
+
+  ofertas Oferta[]
+
+  @@map("categoria_oferta")
+}
+
+model Oferta {
+  id                      Int            @id @default(autoincrement())
+  titulo                  String         @db.VarChar(255)
+  condicionTrueque        String         @db.VarChar(255)
+  comentarioObligatorio   String         @db.VarChar(255)
+  latitud                 Float
+  longitud                Float
+  
+  userId                  Int
+  user                    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  categoriaId             Int
+  categoria               CategoriaOferta @relation(fields: [categoriaId], references: [id])
+  
+  status                  OfferStatus    @default(BORRADOR)
+  
+  imagenes                ImagenOferta[]
+  
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+  activo                  Boolean        @default(true)
+
+  @@index([userId])
+  @@index([categoriaId])
+  @@index([status])
+  @@unique([titulo, userId, activo])
+  @@map("oferta")
+}
+
+model ImagenOferta {
+  id            Int      @id @default(autoincrement())
+  ofertaId      Int
+  oferta        Oferta   @relation(fields: [ofertaId], references: [id], onDelete: Cascade)
+  
+  url           String   @db.VarChar(500)
+  nombre        String?  @db.VarChar(255)
+  tamanioBytes  Int
+  orden         Int      @default(0)
+  
+  createdAt     DateTime @default(now())
+
+  @@index([ofertaId])
+  @@map("imagen_oferta")
 }

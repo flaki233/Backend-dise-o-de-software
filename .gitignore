@@ -1,59 +1,119 @@
-./node_modules# compiled output
 /dist
-/node_modules
 /build
+*.js.map
+*.d.ts
+!*.config.js
+!*.config.ts
 
-# Logs
-logs
-*.log
+/node_modules
+/.pnp
+.pnp.js
+
+.bun
+.bunx
+bun.lockb
+node_modules.bun
+
+package-lock.json
 npm-debug.log*
-pnpm-debug.log*
+
+yarn.lock
 yarn-debug.log*
 yarn-error.log*
+.yarn/
+.yarn-integrity
+
+pnpm-lock.yaml
+pnpm-debug.log*
+
+logs
+*.log
 lerna-debug.log*
 
-# OS
-.DS_Store
-
-# Tests
 /coverage
 /.nyc_output
+*.lcov
 
-# IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
+.DS_Store
+Thumbs.db
+Desktop.ini
 
-# IDE - VSCode
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# dotenv environment variable files
+/.idea
+*.iml
+*.ipr
+*.iws
+.idea/
+
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+
+*.sublime-project
+*.sublime-workspace
+
+*.swp
+*.swo
+*~
+
 .env
-.env.development.local
-.env.test.local
-.env.production.local
 .env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
 
-# temp directory
-.temp
-.tmp
-
-# Runtime data
 pids
 *.pid
 *.seed
 *.pid.lock
 
-# Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-# Uploads folder - images uploaded by users
+docker-compose.override.yml
+.docker/
+
+*.sql.backup
+*.sql.bak
+backup*.sql
+dump*.sql
+*.mwb.bak
+
+prisma/*.db
+prisma/*.db-journal
+
 /uploads/
+/public/uploads/
+/tmp/
+/temp/
+.temp
+.tmp
+
+/dist-ssr
+*.local
+
+/trueque2/node_modules
+/trueque2/dist
+/trueque2/.env
+
+*.bak
+*.old
+*.orig
+*.rej
+*.vim
+.cache
+.parcel-cache
+.turbo
+.bunignore
+bunfig.toml
+
+*.draft.md
