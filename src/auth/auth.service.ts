@@ -2,102 +2,102 @@ import {
   Injectable,
   BadRequestException,
   UnauthorizedException,
-  InternalServerErrorException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import * as bcrypt from 'bcryptjs';
+import { RobleService } from '../roble/roble.service';
+import { RobleRepository } from '../roble/roble.repository';
 import { RegisterDto } from './dtos/register.dto';
-import * as crypto from 'crypto';
-import * as nodemailer from 'nodemailer';
 import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService, private jwtService: JwtService) {}
+  constructor(
+    private roble: RobleService,
+    private robleRepo: RobleRepository,
+    private jwtService: JwtService,
+  ) {}
 
   // --- REGISTRO ---
   async register(dto: RegisterDto) {
-    const { email, password } = dto;
+    const { email, password, name } = dto;
 
     if (!email || !password) {
       throw new BadRequestException('El email y la contraseña son obligatorios.');
     }
 
-    const existingUser = await this.prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      throw new BadRequestException('El correo ya está registrado');
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-
-    const user = await this.prisma.user.create({
-      data: {
+    try {
+      const result = await this.roble.signup(
         email,
-        password: hashedPassword,
-        verificationToken,
-      },
-    });
+        password,
+        name || email.split('@')[0]
+      );
+
+      return {
+        message: 'Usuario registrado. Se ha enviado un código de verificación a tu correo electrónico.',
+        email,
+        info: 'Por favor verifica tu email y usa el código recibido en /auth/verify-email'
+      };
+    } catch (error: any) {
+      if (error.message.includes('contraseña')) {
+        throw new BadRequestException(
+          'La contraseña debe tener mínimo 8 caracteres, una mayúscula, una minúscula, un número y un símbolo (!,@,#,$,_,-)'
+        );
+      }
+      
+      throw new BadRequestException('El correo ya está registrado o hubo un error en el registro');
+    }
+  }
+
+  // --- REGISTRO DIRECTO (sin verificación de email) ---
+  async registerDirect(dto: RegisterDto) {
+    const { email, password, name } = dto;
+
+    if (!email || !password) {
+      throw new BadRequestException('El email y la contraseña son obligatorios.');
+    }
 
     try {
-      await this.sendVerificationEmail(user.email, verificationToken);
-      console.log(`📧 Correo de verificación enviado a ${user.email}`);
-    } catch (err: any) {
-      console.error('❌ Error enviando correo:', err.message);
-    }
+      const result = await this.roble.signupDirect(
+        email,
+        password,
+        name || email.split('@')[0]
+      );
 
-    return {
-      message:
-        'Usuario creado correctamente. Verifica tu correo electrónico para activar la cuenta.',
-      email: user.email,
-    };
+      const loginResponse = await this.roble.login(email, password);
+      if (loginResponse.user && loginResponse.accessToken) {
+        try {
+          console.log('[Auth] Sincronizando usuario a tabla Usuarios_Aplicacion:', loginResponse.user.id);
+          this.roble.setAccessToken(loginResponse.accessToken);
+          await this.roble.insertRecord('Usuarios_Aplicacion', {
+            userId: loginResponse.user.id,
+            email: loginResponse.user.email,
+            name: loginResponse.user.name || name || email.split('@')[0],
+            reputationScore: 0,
+            tradesClosed: 0,
+            active: true,
+            role: 'OFERENTE',
+          });
+          console.log('[Auth] Usuario sincronizado exitosamente');
+        } catch (syncError: any) {
+          console.error('[Auth] Error sincronizando usuario:', syncError.message);
+        }
+      }
+
+      return {
+        message: 'Usuario creado correctamente (sin verificación de email).',
+        email,
+        note: 'Este endpoint es para desarrollo/pruebas. En producción usa /auth/register'
+      };
+    } catch (error: any) {
+      if (error.message.includes('contraseña')) {
+        throw new BadRequestException(
+          'La contraseña debe tener mínimo 8 caracteres, una mayúscula, una minúscula, un número y un símbolo (!,@,#,$,_,-)'
+        );
+      }
+      
+      throw new BadRequestException('El correo ya está registrado o hubo un error en el registro');
+    }
   }
 
-  // --- ENVÍO DE CORREO DE VERIFICACIÓN ---
-  private async sendVerificationEmail(email: string, token: string) {
-    const transporter = nodemailer.createTransport({
-      host: 'localhost',
-      port: 1025,
-      secure: false,
-    });
-
-    const verifyUrl = `http://localhost:3000/auth/verify?token=${token}`;
-
-    await transporter.sendMail({
-      from: '"Trueque App" <no-reply@trueque.com>',
-      to: email,
-      subject: 'Verifica tu cuenta de Trueque',
-      html: `
-        <h2>¡Bienvenido a Trueque!</h2>
-        <p>Por favor, haz clic en el siguiente enlace para verificar tu cuenta:</p>
-        <a href="${verifyUrl}">${verifyUrl}</a>
-        <br/><br/>
-        <p>Si no creaste esta cuenta, puedes ignorar este mensaje.</p>
-      `,
-    });
-  }
-
-  // --- VERIFICAR CORREO ---
-  async verifyEmail(token: string) {
-    if (!token) {
-      throw new BadRequestException('Token no proporcionado.');
-    }
-
-    const user = await this.prisma.user.findFirst({
-      where: { verificationToken: token },
-    });
-
-    if (!user) {
-      throw new BadRequestException('Token inválido o expirado');
-    }
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { verified: true, verificationToken: null },
-    });
-
-    return { message: 'Correo verificado correctamente. Ya puedes iniciar sesión.' };
-  }
 
   // --- INICIO DE SESIÓN ---
   async login(email: string, password: string) {
@@ -105,98 +105,118 @@ export class AuthService {
       throw new BadRequestException('El email y la contraseña son obligatorios.');
     }
 
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      throw new UnauthorizedException('Credenciales inválidas.');
-    }
-
-    if (!user.verified) {
-      throw new UnauthorizedException('Cuenta no verificada. Verifica tu correo.');
-    }
-
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
-      throw new UnauthorizedException('Credenciales inválidas.');
-    }
-
     try {
-      const payload = { sub: user.id, email: user.email };
-      const token = await this.jwtService.signAsync(payload);
+      console.log('[Auth] Intentando login con ROBLE:', email);
+      const robleResponse = await this.roble.login(email, password);
+      console.log('[Auth] Login ROBLE exitoso');
+      
+      if (!robleResponse.accessToken) {
+        throw new UnauthorizedException('Error de autenticación con ROBLE');
+      }
+
+      const robleUser = robleResponse.user;
+
+      this.roble.setAccessToken(robleResponse.accessToken);
+      
+      const existingUser = await this.robleRepo.findUserById(robleUser.id);
+      if (!existingUser) {
+        console.log('[Auth] Usuario no existe en Usuarios_Aplicacion, sincronizando...');
+        try {
+          await this.roble.insertRecord('Usuarios_Aplicacion', {
+            userId: robleUser.id,
+            email: robleUser.email,
+            name: robleUser.name || email.split('@')[0],
+            reputationScore: 0,
+            tradesClosed: 0,
+            active: true,
+            role: 'OFERENTE',
+          });
+          console.log('[Auth] Usuario sincronizado durante login');
+        } catch (syncError: any) {
+          console.error('[Auth] Error sincronizando usuario durante login:', syncError.message);
+        }
+      }
+
+      const payload = {
+        sub: robleUser.id,
+        email: robleUser.email,
+        robleToken: robleResponse.accessToken,
+      };
+      
+      const localToken = await this.jwtService.signAsync(payload);
 
       return {
         message: 'Inicio de sesión exitoso',
-        token,
+        token: localToken,
         user: {
-          id: user.id,
-          email: user.email,
+          id: robleUser.id,
+          email: robleUser.email,
+          name: robleUser.name,
         },
       };
-    } catch (err: any) {
-      console.error('❌ Error generando token:', err.message);
-      throw new InternalServerErrorException('No se pudo generar el token.');
+    } catch (error: any) {
+      console.error('[Auth] Error en login:', error.message || error);
+      throw new UnauthorizedException('Credenciales inválidas o cuenta no verificada.');
+    }
+  }
+
+  // --- VERIFICAR EMAIL ---
+  async verifyEmail(email: string, code: string) {
+    try {
+      const result = await this.roble.verifyEmail(email, code);
+      
+      console.log('[Auth] Email verificado correctamente en ROBLE');
+      console.log('[Auth] Usuario debe hacer login para sincronizar en base de datos');
+      
+      return { 
+        message: 'Email verificado correctamente. Ya puedes iniciar sesión con tu email y contraseña.',
+        email,
+        nextStep: 'Usa POST /auth/login con tu email y contraseña para continuar'
+      };
+    } catch (error: any) {
+      console.error('[Auth] Error verificando email:', error.message);
+      throw new BadRequestException('Código de verificación inválido o expirado');
+    }
+  }
+
+  // --- REFRESH TOKEN ---
+  async refreshAccessToken(refreshToken: string) {
+    try {
+      return await this.roble.refreshToken(refreshToken);
+    } catch (error: any) {
+      throw new UnauthorizedException('Refresh token inválido o expirado');
     }
   }
 
   // --- SOLICITAR RESETEO DE CONTRASEÑA ---
   async forgotPassword(email: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      throw new BadRequestException('No existe una cuenta con ese correo.');
+    try {
+      const result = await this.roble.forgotPassword(email);
+      return { 
+        message: 'Se envió un correo con instrucciones para restablecer tu contraseña.',
+        result 
+      };
+    } catch (error: any) {
+      throw new BadRequestException('Error al solicitar reseteo de contraseña');
     }
-
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExp = new Date(Date.now() + 1000 * 60 * 15); // 15 min
-
-    await this.prisma.user.update({
-      where: { email },
-      data: { resetToken, resetTokenExp },
-    });
-
-    const transporter = nodemailer.createTransport({
-      host: 'localhost',
-      port: 1025,
-      secure: false,
-    });
-
-    const resetUrl = `http://localhost:3000/auth/reset-password?token=${resetToken}`;
-
-    await transporter.sendMail({
-      from: '"Trueque App" <no-reply@trueque.com>',
-      to: email,
-      subject: 'Restablecer contraseña - Trueque',
-      html: `
-        <h2>Restablecer contraseña</h2>
-        <p>Haz clic en el siguiente enlace para restablecer tu contraseña (válido por 15 minutos):</p>
-        <a href="${resetUrl}">${resetUrl}</a>
-      `,
-    });
-
-    console.log(`📧 Correo de restablecimiento enviado a ${email}`);
-
-    return { message: 'Se envió un correo para restablecer la contraseña.' };
   }
 
   // --- RESETEAR CONTRASEÑA ---
   async resetPassword(token: string, newPassword: string) {
-    const user = await this.prisma.user.findFirst({
-      where: { resetToken: token },
-    });
-
-    if (!user || !user.resetTokenExp || user.resetTokenExp < new Date()) {
-      throw new BadRequestException('Token inválido o expirado.');
+    try {
+      const result = await this.roble.resetPassword(token, newPassword);
+      return { message: 'Contraseña restablecida correctamente', result };
+    } catch (error: any) {
+      throw new BadRequestException('Token inválido o expirado');
     }
+  }
 
-    const hashed = await bcrypt.hash(newPassword, 10);
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashed,
-        resetToken: null,
-        resetTokenExp: null,
-      },
-    });
-
-    return { message: 'Contraseña restablecida correctamente. Ya puedes iniciar sesión.' };
+  // --- LOGOUT ---
+  async logout(accessToken: string) {
+    try {
+      return await this.roble.logout(accessToken);
+    } catch (error: any) {
+      throw new BadRequestException('Error al cerrar sesión');
+    }
   }
 }

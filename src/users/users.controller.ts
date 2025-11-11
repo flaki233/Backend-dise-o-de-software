@@ -1,4 +1,5 @@
-import { Controller, Get, Patch, Body, Param, ParseIntPipe, Delete } from '@nestjs/common';
+import { Controller, Get, Patch, Body, Delete, UseGuards, Req } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dtos/update-user.dto';
 
@@ -6,21 +7,21 @@ import { UpdateUserDto } from './dtos/update-user.dto';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // 🔹 Obtener perfil
-  @Get(':id')
-  async getProfile(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.getProfile(id);
+  @Get('profile')
+  @UseGuards(AuthGuard('jwt'))
+  async getProfile(@Req() req: any) {
+    return this.usersService.getProfile(req.user.userId);
   }
 
-  // 🔹 Actualizar perfil
-  @Patch(':id')
-  async updateProfile(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateUserDto) {
-    return this.usersService.updateProfile(id, dto);
+  @Patch('profile')
+  @UseGuards(AuthGuard('jwt'))
+  async updateProfile(@Req() req: any, @Body() dto: UpdateUserDto) {
+    return this.usersService.updateProfile(req.user.userId, dto);
   }
 
-  // 🔹 Desactivar cuenta
-  @Delete(':id')
-  async deactivate(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.deactivateAccount(id);
+  @Delete('profile')
+  @UseGuards(AuthGuard('jwt'))
+  async deactivate(@Req() req: any) {
+    return this.usersService.deactivateAccount(req.user.userId);
   }
 }

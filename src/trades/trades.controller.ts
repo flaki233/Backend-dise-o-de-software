@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { TradesService } from './trades.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -17,28 +17,26 @@ export class TradesController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id') id: string) {
     return this.trades.findOne(id);
   }
 
   @Get(':id/closure')
-  getClosure(@Param('id', ParseIntPipe) id: number) {
+  getClosure(@Param('id') id: string) {
     return this.trades.getClosure(id);
   }
 
-  // confirmación bilateral: aceptar/rechazar
   @Post(':id/confirm')
   confirm(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: ConfirmTradeDto,
   ) {
     return this.trades.confirm(id, dto);
   }
 
-  // atajo: solo decisión (accept / reject) deduciendo el usuario desde el token dentro del DTO
   @Post(':id/decision')
   decide(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: DecisionDto,
   ) {
     if (dto.decision === 'accept') return this.trades.confirm(id, { userId: dto.userId, accept: true });

@@ -5,34 +5,29 @@ import {
   ForbiddenException,
   ConflictException 
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { RobleRepository } from '../roble/roble.repository';
 import { CreateOfertaDto, UpdateOfertaDto, FilterOfertaDto } from './dtos';
-import { OfferStatus } from '@prisma/client';
 
 @Injectable()
 export class OfertasService {
   private readonly MAX_IMAGE_SIZE = 2 * 1024 * 1024;
   private readonly MAX_IMAGES = 3;
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private robleRepo: RobleRepository
+  ) {}
 
-  async create(userId: number, dto: CreateOfertaDto) {
-    const categoria = await this.prisma.categoriaOferta.findFirst({
-      where: { id: dto.categoriaId, activo: true },
-    });
-
+  async create(userId: any, dto: CreateOfertaDto) {
+    const userIdStr = String(userId);
+    
+    const categoria = await this.robleRepo.findCategoriaById(dto.categoriaId);
     if (!categoria) {
       throw new NotFoundException('La categoría no existe o no está activa');
     }
 
-    const existente = await this.prisma.oferta.findFirst({
-      where: {
-        titulo: dto.titulo,
-        userId,
-        activo: true,
-      },
-    });
-
+    const ofertas = await this.robleRepo.findOfertasByUser(userIdStr);
+    const existente = ofertas.find((o: any) => o.titulo === dto.titulo);
+    
     if (existente) {
       throw new ConflictException(
         'Ya tienes una oferta activa con ese título. Por favor usa un título diferente.'
@@ -56,86 +51,70 @@ export class OfertasService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const oferta = await tx.oferta.create({
-        data: {
-          titulo: dto.titulo,
-          condicionTrueque: dto.condicionTrueque,
-          comentarioObligatorio: dto.comentarioObligatorio,
-          latitud: dto.latitud,
-          longitud: dto.longitud,
-          userId,
-          categoriaId: dto.categoriaId,
-          status: OfferStatus.BORRADOR,
-        },
-        include: {
-          categoria: true,
-          user: {
-            select: {
-              id: true,
-              email: true,
-              name: true,
-            },
-          },
-        },
-      });
-
-      const imagenesCreadas = await Promise.all(
-        dto.imagenes.map((img, index) =>
-          tx.imagenOferta.create({
-            data: {
-              ofertaId: oferta.id,
-              url: img.base64,
-              nombre: img.nombre || `imagen-${index + 1}`,
-              tamanioBytes: this.getBase64Size(img.base64),
-              orden: index,
-            },
-          })
-        )
-      );
-
-      return {
-        ...oferta,
-        imagenes: imagenesCreadas,
-      };
+    const oferta = await this.robleRepo.createOferta({
+      titulo: dto.titulo,
+      condicionTrueque: dto.condicionTrueque,
+      comentarioObligatorio: dto.comentarioObligatorio,
+      latitud: dto.latitud,
+      longitud: dto.longitud,
+      userId: userIdStr,
+      categoriaId: dto.categoriaId,
+      status: 'BORRADOR',
     });
-  }
 
-  async findMyOffers(userId: number, filters: FilterOfertaDto) {
-    const { categoriaId, status, search, page = 1, limit = 10 } = filters;
-
-    const where: any = {
-      userId,
-      activo: true,
-    };
-
-    if (categoriaId) where.categoriaId = categoriaId;
-    if (status) where.status = status;
-    if (search) {
-      where.titulo = {
-        contains: search,
-        mode: 'insensitive',
-      };
-    }
-
-    const [ofertas, total] = await Promise.all([
-      this.prisma.oferta.findMany({
-        where,
-        include: {
-          categoria: true,
-          imagenes: {
-            orderBy: { orden: 'asc' },
-          },
-        },
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.oferta.count({ where }),
-    ]);
+    const imagenesCreadas = await Promise.all(
+      dto.imagenes.map((img, index) =>
+        this.robleRepo.createImagenOferta({
+          ofertaId: (oferta as any)._id,
+          url: img.base64,
+          nombre: img.nombre || `imagen-${index + 1}`,
+          tamanioBytes: this.getBase64Size(img.base64),
+          orden: index,
+        })
+      )
+    );
 
     return {
-      data: ofertas,
+      ...oferta,
+      imagenes: imagenesCreadas,
+    };
+  }
+
+  async findMyOffers(userId: any, filters: FilterOfertaDto) {
+    const { categoriaId, status, search, page = 1, limit = 10 } = filters;
+    const userIdStr = String(userId);
+
+    let ofertas = await this.robleRepo.findOfertasByUser(userIdStr);
+
+    if (categoriaId) {
+      ofertas = ofertas.filter((o: any) => o.categoriaId === categoriaId);
+    }
+    if (status) {
+      ofertas = ofertas.filter((o: any) => o.status === status);
+    }
+    if (search) {
+      ofertas = ofertas.filter((o: any) => 
+        o.titulo.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+
+    ofertas.sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    const total = ofertas.length;
+    const skip = (page - 1) * limit;
+    const paginatedOfertas = ofertas.slice(skip, skip + limit);
+
+    const ofertasConImagenes = await Promise.all(
+      paginatedOfertas.map(async (oferta: any) => {
+        const imagenes = await this.robleRepo.findImagenesByOferta(oferta._id);
+        return { ...oferta, imagenes };
+      })
+    );
+
+    return {
+      data: ofertasConImagenes,
       meta: {
         total,
         page,
@@ -148,46 +127,34 @@ export class OfertasService {
   async findAllPublic(filters: FilterOfertaDto) {
     const { categoriaId, search, page = 1, limit = 10 } = filters;
 
-    const where: any = {
-      activo: true,
-      status: OfferStatus.PUBLICADA,
-    };
+    let ofertas = await this.robleRepo.findPublicOfertas();
 
-    if (categoriaId) where.categoriaId = categoriaId;
+    if (categoriaId) {
+      ofertas = ofertas.filter((o: any) => o.categoriaId === categoriaId);
+    }
     if (search) {
-      where.titulo = {
-        contains: search,
-        mode: 'insensitive',
-      };
+      ofertas = ofertas.filter((o: any) => 
+        o.titulo.toLowerCase().includes(search.toLowerCase())
+      );
     }
 
-    const [ofertas, total] = await Promise.all([
-      this.prisma.oferta.findMany({
-        where,
-        include: {
-          categoria: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              location: true,
-              reputationScore: true,
-              tradesClosed: true,
-            },
-          },
-          imagenes: {
-            orderBy: { orden: 'asc' },
-          },
-        },
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.oferta.count({ where }),
-    ]);
+    ofertas.sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    const total = ofertas.length;
+    const skip = (page - 1) * limit;
+    const paginatedOfertas = ofertas.slice(skip, skip + limit);
+
+    const ofertasConImagenes = await Promise.all(
+      paginatedOfertas.map(async (oferta: any) => {
+        const imagenes = await this.robleRepo.findImagenesByOferta(oferta._id);
+        return { ...oferta, imagenes };
+      })
+    );
 
     return {
-      data: ofertas,
+      data: ofertasConImagenes,
       meta: {
         total,
         page,
@@ -197,60 +164,39 @@ export class OfertasService {
     };
   }
 
-  async findOne(id: number, userId?: number) {
-    const oferta = await this.prisma.oferta.findFirst({
-      where: { id, activo: true },
-      include: {
-        categoria: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            location: true,
-            reputationScore: true,
-            tradesClosed: true,
-          },
-        },
-        imagenes: {
-          orderBy: { orden: 'asc' },
-        },
-      },
-    });
+  async findOne(id: string, userId?: string) {
+    const oferta = await this.robleRepo.findOfertaById(id);
 
     if (!oferta) {
       throw new NotFoundException('Oferta no encontrada');
     }
 
-    if (oferta.status !== OfferStatus.PUBLICADA && oferta.userId !== userId) {
+    const userIdStr = userId ? String(userId) : undefined;
+    if (oferta.status !== 'PUBLICADA' && oferta.userId !== userIdStr) {
       throw new ForbiddenException('No tienes permiso para ver esta oferta');
     }
 
-    return oferta;
+    const imagenes = await this.robleRepo.findImagenesByOferta((oferta as any)._id);
+    return { ...oferta, imagenes };
   }
 
-  async update(id: number, userId: number, dto: UpdateOfertaDto) {
-    const oferta = await this.prisma.oferta.findFirst({
-      where: { id, activo: true },
-    });
+  async update(id: string, userId: any, dto: UpdateOfertaDto) {
+    const userIdStr = String(userId);
+    const oferta = await this.robleRepo.findOfertaById(id);
 
     if (!oferta) {
       throw new NotFoundException('Oferta no encontrada');
     }
 
-    if (oferta.userId !== userId) {
+    if (oferta.userId !== userIdStr) {
       throw new ForbiddenException('Solo el propietario puede editar esta oferta');
     }
 
     if (dto.titulo && dto.titulo !== oferta.titulo) {
-      const existente = await this.prisma.oferta.findFirst({
-        where: {
-          titulo: dto.titulo,
-          userId,
-          activo: true,
-          id: { not: id },
-        },
-      });
+      const ofertas = await this.robleRepo.findOfertasByUser(userIdStr);
+      const existente = ofertas.find((o: any) => 
+        o.titulo === dto.titulo && o._id !== id
+      );
 
       if (existente) {
         throw new ConflictException(
@@ -260,67 +206,47 @@ export class OfertasService {
     }
 
     if (dto.categoriaId) {
-      const categoria = await this.prisma.categoriaOferta.findFirst({
-        where: { id: dto.categoriaId, activo: true },
-      });
-
+      const categoria = await this.robleRepo.findCategoriaById(dto.categoriaId);
       if (!categoria) {
         throw new NotFoundException('La categoría no existe');
       }
     }
 
-    return this.prisma.oferta.update({
-      where: { id },
-      data: dto,
-      include: {
-        categoria: true,
-        imagenes: {
-          orderBy: { orden: 'asc' },
-        },
-      },
-    });
+    const updated = await this.robleRepo.updateOferta(id, dto);
+    const imagenes = await this.robleRepo.findImagenesByOferta((updated as any)._id);
+    return { ...updated, imagenes };
   }
 
-  async updateStatus(id: number, userId: number, status: OfferStatus) {
-    const oferta = await this.prisma.oferta.findFirst({
-      where: { id, activo: true },
-    });
+  async updateStatus(id: string, userId: any, status: string) {
+    const userIdStr = String(userId);
+    const oferta = await this.robleRepo.findOfertaById(id);
 
     if (!oferta) {
       throw new NotFoundException('Oferta no encontrada');
     }
 
-    if (oferta.userId !== userId) {
+    if (oferta.userId !== userIdStr) {
       throw new ForbiddenException('Solo el propietario puede cambiar el estado');
     }
 
-    return this.prisma.oferta.update({
-      where: { id },
-      data: { status },
-      include: {
-        categoria: true,
-        imagenes: true,
-      },
-    });
+    const updated = await this.robleRepo.updateOferta(id, { status });
+    const imagenes = await this.robleRepo.findImagenesByOferta((updated as any)._id);
+    return { ...updated, imagenes };
   }
 
-  async remove(id: number, userId: number) {
-    const oferta = await this.prisma.oferta.findFirst({
-      where: { id, activo: true },
-    });
+  async remove(id: string, userId: any) {
+    const userIdStr = String(userId);
+    const oferta = await this.robleRepo.findOfertaById(id);
 
     if (!oferta) {
       throw new NotFoundException('Oferta no encontrada');
     }
 
-    if (oferta.userId !== userId) {
+    if (oferta.userId !== userIdStr) {
       throw new ForbiddenException('Solo el propietario puede eliminar esta oferta');
     }
 
-    await this.prisma.oferta.update({
-      where: { id },
-      data: { activo: false },
-    });
+    await this.robleRepo.updateOferta(id, { activo: false });
 
     return { message: 'Oferta eliminada correctamente' };
   }

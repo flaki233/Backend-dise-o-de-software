@@ -8,17 +8,11 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
     "build": "nest build",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio",
-    "prisma:seed": "ts-node prisma/seed.ts",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f"
-  },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "docker:logs": "docker-compose logs -f",
+    "roble:migrate": "ts-node scripts/migrate-to-roble.ts",
+    "roble:test-auth": "ts-node scripts/test-roble-auth.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.8",
@@ -28,7 +22,6 @@
     "@nestjs/platform-express": "^11.1.8",
     "@nestjs/swagger": "^11.2.1",
     "@nestjs/typeorm": "^11.0.0",
-    "@prisma/client": "^6.19.0",
     "axios": "^1.13.1",
     "bcryptjs": "^3.0.3",
     "class-transformer": "^0.5.1",
@@ -50,7 +43,6 @@
     "@types/nodemailer": "^7.0.3",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
-    "prisma": "^6.19.0",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.4.0"

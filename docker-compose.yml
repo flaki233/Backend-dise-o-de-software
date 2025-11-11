@@ -1,36 +1,29 @@
-version: '3.8'
-
 services:
-  postgres:
-    image: postgres:15
-    container_name: trueque_postgres
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trueque_backend
     restart: always
     ports:
-      - '5432:5432'
+      - '3000:3000'
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: trueque
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      NODE_ENV: production
+      JWT_SECRET: yHj38fnskL_29adPqQp93sKD
+      RECAPTCHA_SECRET_KEY: 6LeqNgAsAAAAADILETd6EzDSwdecwd0ERUW9fOfp
+      RECAPTCHA_SITE_KEY: 6LeqNgAsAAAAAPSTIWyTc--LX2dcSOAFxeXdsOZi
+      RECAPTCHA_TEST: "false"
+      ROBLE_API_URL: https://roble-api.openlab.uninorte.edu.co
+      ROBLE_PROJECT_TOKEN: trueque_29b341a61b
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (res) => { process.exit(res.statusCode === 404 || res.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));"]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    networks:
+      - trueque_network
 
-  mailhog:
-    image: mailhog/mailhog
-    container_name: trueque_mailhog
-    restart: always
-    ports:
-      - "1025:1025"   # Puerto SMTP (envío desde tu app)
-      - "8025:8025"   # Interfaz web (http://localhost:8025)
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8025"]
-      interval: 5s
-      timeout: 5s
-      retries: 3
-
-volumes:
-  postgres_data:
+networks:
+  trueque_network:
+    driver: bridge

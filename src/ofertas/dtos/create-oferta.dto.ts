@@ -20,10 +20,10 @@ export class CreateOfertaDto {
   @IsNotEmpty()
   titulo!: string;
 
-  @ApiProperty({ description: 'ID de la categoría', example: 1 })
-  @IsInt()
+  @ApiProperty({ description: 'ID de la categoría', example: 'NyyClPAJJAAl' })
+  @IsString()
   @IsNotEmpty()
-  categoriaId!: number;
+  categoriaId!: string;
 
   @ApiProperty({ 
     description: 'Condiciones del trueque', 

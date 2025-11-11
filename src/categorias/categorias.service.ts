@@ -1,56 +1,53 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { RobleRepository } from '../roble/roble.repository';
+import { RobleService } from '../roble/roble.service';
 import { CreateCategoriaDto } from './dtos/create-categoria.dto';
+import { UpdateCategoriaDto } from './dtos/update-categoria.dto';
 
 @Injectable()
 export class CategoriasService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private robleRepo: RobleRepository,
+    private robleService: RobleService,
+  ) {}
 
-  async create(dto: CreateCategoriaDto) {
-    return this.prisma.categoriaOferta.create({
-      data: {
-        nombre: dto.nombre,
-      },
+  async create(dto: CreateCategoriaDto, robleToken?: string) {
+    if (robleToken) this.robleService.setAccessToken(robleToken);
+    return this.robleRepo.createCategoria({
+      nombre: dto.nombre,
     });
   }
 
   async findAll() {
-    return this.prisma.categoriaOferta.findMany({
-      where: { activo: true },
-      orderBy: { nombre: 'asc' },
-    });
+    return this.robleRepo.findAllCategorias();
   }
 
-  async findOne(id: number) {
-    const categoria = await this.prisma.categoriaOferta.findFirst({
-      where: { id, activo: true },
-    });
+  async findOne(id: string) {
+    const categoria = await this.robleRepo.findCategoriaById(id);
+    if (!categoria) {
+      throw new NotFoundException('Categoría no encontrada');
+    }
+    return categoria;
+  }
 
+  async update(id: string, dto: UpdateCategoriaDto, robleToken?: string) {
+    if (robleToken) this.robleService.setAccessToken(robleToken);
+    const categoria = await this.robleRepo.findCategoriaById(id);
     if (!categoria) {
       throw new NotFoundException('Categoría no encontrada');
     }
 
-    return categoria;
+    return this.robleRepo.updateCategoria(id, dto);
   }
 
-  async update(id: number, dto: CreateCategoriaDto) {
-    const categoria = await this.findOne(id);
+  async remove(id: string, robleToken?: string) {
+    if (robleToken) this.robleService.setAccessToken(robleToken);
+    const categoria = await this.robleRepo.findCategoriaById(id);
+    if (!categoria) {
+      throw new NotFoundException('Categoría no encontrada');
+    }
 
-    return this.prisma.categoriaOferta.update({
-      where: { id: categoria.id },
-      data: { nombre: dto.nombre },
-    });
-  }
-
-  async remove(id: number) {
-    const categoria = await this.findOne(id);
-
-    await this.prisma.categoriaOferta.update({
-      where: { id: categoria.id },
-      data: { activo: false },
-    });
-
+    await this.robleRepo.updateCategoria(id, { activo: false });
     return { message: 'Categoría eliminada correctamente' };
   }
 }
-

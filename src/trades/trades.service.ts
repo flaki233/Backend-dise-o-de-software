@@ -1,47 +1,40 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { RobleRepository } from '../roble/roble.repository';
 import { ConfirmTradeDto, CreateTradeDto } from './dtos';
-import { TradeStatus} from '@prisma/client';
 
 @Injectable()
 export class TradesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly robleRepo: RobleRepository,
+  ) {}
 
   async create(dto: CreateTradeDto) {
     if (dto.proposerId === dto.responderId) {
       throw new BadRequestException('No puedes proponer un trueque contigo mismo');
     }
-    return this.prisma.trade.create({
-      data: {
-        proposerId: dto.proposerId,
-        responderId: dto.responderId,
-        proposerOfferJson: JSON.parse(dto.proposerOfferJson),
-        responderOfferJson: JSON.parse(dto.responderOfferJson),
-      },
+    
+    return this.robleRepo.createTrade({
+      proposerId: dto.proposerId,
+      responderId: dto.responderId,
+      proposerOfferJson: JSON.parse(dto.proposerOfferJson),
+      responderOfferJson: JSON.parse(dto.responderOfferJson),
     });
   }
 
-  async findOne(id: number) {
-    const trade = await this.prisma.trade.findUnique({ where: { id } });
+  async findOne(id: string) {
+    const trade = await this.robleRepo.findTradeById(id);
     if (!trade) throw new NotFoundException('Trueque no encontrado');
     return trade;
   }
 
-  async getClosure(tradeId: number) {
-    const closure = await this.prisma.tradeClosure.findUnique({ where: { tradeId } });
+  async getClosure(tradeId: string) {
+    const closure = await this.robleRepo.findTradeClosureByTradeId(tradeId);
     if (!closure) throw new NotFoundException('Este trueque aún no tiene registro de cierre.');
     return closure;
   }
 
-  /**
-   * Confirmación bilateral:
-   * - Solo pueden confirmar/cancelar proposer o responder
-   * - Si accept=false -> CANCELLED
-   * - Si accept=true -> marca confirmed del actor
-   * - Si ambos confirmed -> status=CONFIRMED, closedAt=now y se actualiza reputación/estadística
-   */
-  async confirm(id: number, { userId, accept }: ConfirmTradeDto) {
-    const trade = await this.prisma.trade.findUnique({ where: { id } });
+  async confirm(id: string, { userId, accept }: ConfirmTradeDto) {
+    const trade = await this.robleRepo.findTradeById(id);
     if (!trade) throw new NotFoundException('Trueque no encontrado');
 
     const isProposer = trade.proposerId === userId;
@@ -54,76 +47,68 @@ export class TradesService {
       throw new BadRequestException(`El trueque ya está ${trade.status.toLowerCase()}`);
     }
 
-    // rechazo/cancelación inmediata
     if (!accept) {
-      const cancelled = await this.prisma.trade.update({
-       where: { id },
-       data: {
-       status: TradeStatus.CANCELLED,
-       proposerConfirmed: false,
-       responderConfirmed: false,
-       closedAt: new Date(),
-      },
-    });
+      const cancelled = await this.robleRepo.updateTrade(id, {
+        status: 'CANCELLED',
+        proposerConfirmed: false,
+        responderConfirmed: false,
+        closedAt: new Date().toISOString(),
+      });
 
-    // 👉 guarda registro de cierre (inmutable)
-    await this.recordClosure(this.prisma, cancelled, TradeStatus.CANCELLED);
-    return cancelled;
+      await this.robleRepo.createTradeClosure({
+        tradeId: (cancelled as any)._id,
+        proposerId: cancelled.proposerId,
+        responderId: cancelled.responderId,
+        offerA: cancelled.proposerOfferJson,
+        offerB: cancelled.responderOfferJson,
+        closedAt: new Date().toISOString(),
+        finalStatus: 'CANCELLED',
+      });
+      
+      return cancelled;
     }
 
-    // aceptación: marcamos confirmación del actor
     const data: any = {};
     if (isProposer) data.proposerConfirmed = true;
     if (isResponder) data.responderConfirmed = true;
 
-    // usamos transacción para leer-actualizar-generar efectos
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.trade.update({ where: { id }, data });
+    const updated = await this.robleRepo.updateTrade(id, data);
 
-      const both = updated.proposerConfirmed && updated.responderConfirmed;
-      if (!both) return updated;
+    const both = updated.proposerConfirmed && updated.responderConfirmed;
+    if (!both) return updated;
 
-      // ambas confirmaciones → cerramos y actualizamos métricas de usuarios
-      const closed = await tx.trade.update({
-        where: { id },
-        data: { status: TradeStatus.CONFIRMED, closedAt: new Date() },
-      });
-
-      // Opcional: reputación/contador de trueques cerrados
-      await tx.user.update({
-        where: { id: closed.proposerId },
-        data: { tradesClosed: { increment: 1 }, reputationScore: { increment: 1 } },
-      });
-      await tx.user.update({
-        where: { id: closed.responderId },
-        data: { tradesClosed: { increment: 1 }, reputationScore: { increment: 1 } },
-      });
-
-      // 👉 guarda registro de cierre (inmutable)
-      await this.recordClosure(tx, closed, TradeStatus.CONFIRMED);
-
-      return closed;
+    const closed = await this.robleRepo.updateTrade(id, {
+      status: 'CONFIRMED',
+      closedAt: new Date().toISOString(),
     });
-  }
-    // === REGISTRO INMUTABLE DE CIERRE ===
-  private async recordClosure(
-    tx: any,
-    trade: any,
-    final: TradeStatus,
-  ) {
-    return tx.tradeClosure.upsert({
-      where: { tradeId: trade.id },
-      update: {},
-      create: {
-        tradeId: trade.id,
-        proposerId: trade.proposerId,
-        responderId: trade.responderId,
-        offerA: trade.proposerOfferJson,
-        offerB: trade.responderOfferJson,
-        closedAt: new Date(),
-        finalStatus: final,
-      },
-    });
-  }
 
+    const proposer = await this.robleRepo.findUserById(closed.proposerId);
+    const responder = await this.robleRepo.findUserById(closed.responderId);
+
+    if (proposer) {
+      await this.robleRepo.updateUser(closed.proposerId, {
+        tradesClosed: (proposer.tradesClosed || 0) + 1,
+        reputationScore: (proposer.reputationScore || 0) + 1,
+      });
+    }
+
+    if (responder) {
+      await this.robleRepo.updateUser(closed.responderId, {
+        tradesClosed: (responder.tradesClosed || 0) + 1,
+        reputationScore: (responder.reputationScore || 0) + 1,
+      });
+    }
+
+    await this.robleRepo.createTradeClosure({
+      tradeId: (closed as any)._id,
+      proposerId: closed.proposerId,
+      responderId: closed.responderId,
+      offerA: closed.proposerOfferJson,
+      offerB: closed.responderOfferJson,
+      closedAt: new Date().toISOString(),
+      finalStatus: 'CONFIRMED',
+    });
+
+    return closed;
+  }
 }

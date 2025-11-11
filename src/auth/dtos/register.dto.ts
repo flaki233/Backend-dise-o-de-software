@@ -1,6 +1,6 @@
 // register.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, MinLength, IsOptional } from 'class-validator';
 
 export class RegisterDto {
   @ApiProperty({ example: 'nuevo@correo.com', description: 'Correo electrónico para registro' })
@@ -11,4 +11,8 @@ export class RegisterDto {
   @IsNotEmpty()
   @MinLength(6)
   password!: string;
+
+  @ApiProperty({ example: 'Juan Pérez', description: 'Nombre del usuario', required: false })
+  @IsOptional()
+  name?: string;
 }

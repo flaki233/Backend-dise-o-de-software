@@ -2,15 +2,14 @@ import { Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
-import { PrismaService } from '../prisma/prisma.service';
 import { JwtModule } from '@nestjs/jwt';
-import { PrismaModule } from '../prisma/prisma.module';
+import { RobleModule } from '../roble/roble.module';
 import { RecaptchaService } from '../recaptcha/recaptcha.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
-    PrismaModule,
+    RobleModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: process.env.JWT_SECRET,
@@ -21,8 +20,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   providers: [
     JwtStrategy,
     AuthService,
-    PrismaService,
-    RecaptchaService, 
+    RecaptchaService,
   ],
   exports: [PassportModule, JwtModule],
 })

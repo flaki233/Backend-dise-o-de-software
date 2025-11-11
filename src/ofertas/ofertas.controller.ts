@@ -8,7 +8,6 @@ import {
   Delete,
   UseGuards,
   Query,
-  ParseIntPipe,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -17,7 +16,6 @@ import { OfertasService } from './ofertas.service';
 import { CreateOfertaDto, UpdateOfertaDto, FilterOfertaDto } from './dtos';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
-import { OfferStatus } from '@prisma/client';
 
 @ApiTags('Ofertas')
 @Controller('ofertas')
@@ -42,7 +40,7 @@ export class OfertasController {
   @ApiParam({ name: 'id', description: 'ID de la oferta' })
   @ApiResponse({ status: 200, description: 'Oferta encontrada' })
   @ApiResponse({ status: 404, description: 'Oferta no encontrada' })
-  async findOnePublic(@Param('id', ParseIntPipe) id: number) {
+  async findOnePublic(@Param('id') id: string) {
     return this.ofertasService.findOne(id);
   }
 
@@ -58,7 +56,7 @@ export class OfertasController {
   @ApiResponse({ status: 409, description: 'Ya existe una oferta con ese título' })
   @HttpCode(HttpStatus.CREATED)
   async create(
-    @GetUser('userId') userId: number,
+    @GetUser('userId') userId: any,
     @Body() createOfertaDto: CreateOfertaDto,
   ) {
     return this.ofertasService.create(userId, createOfertaDto);
@@ -68,15 +66,15 @@ export class OfertasController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Obtener mis ofertas (panel personal)' })
-  @ApiQuery({ name: 'categoriaId', required: false, type: Number })
-  @ApiQuery({ name: 'status', required: false, enum: OfferStatus })
+  @ApiQuery({ name: 'categoriaId', required: false, type: String })
+  @ApiQuery({ name: 'status', required: false, enum: ['BORRADOR', 'PUBLICADA', 'PAUSADA'] })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   @ApiResponse({ status: 200, description: 'Lista de mis ofertas' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   async findMyOffers(
-    @GetUser('userId') userId: number,
+    @GetUser('userId') userId: any,
     @Query() filters: FilterOfertaDto,
   ) {
     return this.ofertasService.findMyOffers(userId, filters);
@@ -91,8 +89,8 @@ export class OfertasController {
   @ApiResponse({ status: 404, description: 'Oferta no encontrada' })
   @ApiResponse({ status: 403, description: 'No tienes permiso para ver esta oferta' })
   async findOne(
-    @Param('id', ParseIntPipe) id: number,
-    @GetUser('userId') userId: number,
+    @Param('id') id: string,
+    @GetUser('userId') userId: any,
   ) {
     return this.ofertasService.findOne(id, userId);
   }
@@ -107,8 +105,8 @@ export class OfertasController {
   @ApiResponse({ status: 403, description: 'No eres el propietario' })
   @ApiResponse({ status: 409, description: 'Ya existe otra oferta con ese título' })
   async update(
-    @Param('id', ParseIntPipe) id: number,
-    @GetUser('userId') userId: number,
+    @Param('id') id: string,
+    @GetUser('userId') userId: any,
     @Body() updateOfertaDto: UpdateOfertaDto,
   ) {
     return this.ofertasService.update(id, userId, updateOfertaDto);
@@ -119,14 +117,14 @@ export class OfertasController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Cambiar estado de oferta: BORRADOR → PUBLICADA → PAUSADA' })
   @ApiParam({ name: 'id', description: 'ID de la oferta' })
-  @ApiParam({ name: 'status', enum: OfferStatus, description: 'Nuevo estado' })
+  @ApiParam({ name: 'status', enum: ['BORRADOR', 'PUBLICADA', 'PAUSADA'], description: 'Nuevo estado' })
   @ApiResponse({ status: 200, description: 'Estado actualizado' })
   @ApiResponse({ status: 404, description: 'Oferta no encontrada' })
   @ApiResponse({ status: 403, description: 'No eres el propietario' })
   async updateStatus(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('status') status: OfferStatus,
-    @GetUser('userId') userId: number,
+    @Param('id') id: string,
+    @Param('status') status: string,
+    @GetUser('userId') userId: any,
   ) {
     return this.ofertasService.updateStatus(id, userId, status);
   }
@@ -141,8 +139,8 @@ export class OfertasController {
   @ApiResponse({ status: 403, description: 'No eres el propietario' })
   @HttpCode(HttpStatus.OK)
   async remove(
-    @Param('id', ParseIntPipe) id: number,
-    @GetUser('userId') userId: number,
+    @Param('id') id: string,
+    @GetUser('userId') userId: any,
   ) {
     return this.ofertasService.remove(id, userId);
   }

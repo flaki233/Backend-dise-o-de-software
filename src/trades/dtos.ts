@@ -1,34 +1,40 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsJSON, IsIn } from 'class-validator';
+import { IsBoolean, IsString, IsJSON, IsIn } from 'class-validator';
 
 export class CreateTradeDto {
-  @ApiProperty() @IsInt()
-  proposerId!: number;
+  @ApiProperty({ example: '0ef7c445-f7ed-4fc4-9e28-33240cf5290b' })
+  @IsString()
+  proposerId!: string;
 
-  @ApiProperty() @IsInt()
-  responderId!: number;
+  @ApiProperty({ example: '54749e96-0492-4f4a-8647-13437b11418d' })
+  @IsString()
+  responderId!: string;
 
-  @ApiProperty({ description: 'Oferta del proponente (estructura libre)' })
+  @ApiProperty({ description: 'Oferta del proponente (estructura libre)', example: '{"offerId": "abc123", "title": "Mi Libro"}' })
   @IsJSON()
   proposerOfferJson!: string;
 
-  @ApiProperty({ description: 'Oferta del respondedor (estructura libre)' })
+  @ApiProperty({ description: 'Oferta del respondedor (estructura libre)', example: '{"offerId": "xyz789", "title": "Mi Tablet"}' })
   @IsJSON()
   responderOfferJson!: string;
 }
 
 export class ConfirmTradeDto {
-  @ApiProperty() @IsInt()
-  userId!: number;         // normalmente lo sacas del JWT en un interceptor/guard
+  @ApiProperty({ example: '0ef7c445-f7ed-4fc4-9e28-33240cf5290b' })
+  @IsString()
+  userId!: string;
 
-  @ApiProperty() @IsBoolean()
-  accept!: boolean;        // true = confirma, false = rechaza/cancela
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  accept!: boolean;
 }
 
 export class DecisionDto {
-  @ApiProperty({ enum: ['accept', 'reject'] }) @IsIn(['accept', 'reject'])
+  @ApiProperty({ enum: ['accept', 'reject'], example: 'accept' })
+  @IsIn(['accept', 'reject'])
   decision!: 'accept' | 'reject';
 
-  @ApiProperty() @IsInt()
-  userId!: number; // idem: en real lo tomas del token
+  @ApiProperty({ example: '0ef7c445-f7ed-4fc4-9e28-33240cf5290b' })
+  @IsString()
+  userId!: string;
 }

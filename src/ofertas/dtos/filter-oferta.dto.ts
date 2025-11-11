@@ -1,24 +1,22 @@
-import { IsOptional, IsEnum, IsInt, IsString } from 'class-validator';
+import { IsOptional, IsInt, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { OfferStatus } from '@prisma/client';
 
 export class FilterOfertaDto {
-  @ApiProperty({ description: 'ID de la categoría', example: 1, required: false })
-  @IsInt()
+  @ApiProperty({ description: 'ID de la categoría', example: 'abc123', required: false })
+  @IsString()
   @IsOptional()
-  @Type(() => Number)
-  categoriaId?: number;
+  categoriaId?: string;
 
   @ApiProperty({ 
     description: 'Estado de la oferta', 
-    enum: OfferStatus,
+    enum: ['BORRADOR', 'PUBLICADA', 'PAUSADA'],
     example: 'PUBLICADA',
     required: false 
   })
-  @IsEnum(OfferStatus)
+  @IsString()
   @IsOptional()
-  status?: OfferStatus;
+  status?: string;
 
   @ApiProperty({ description: 'Búsqueda por título', example: 'libro', required: false })
   @IsString()

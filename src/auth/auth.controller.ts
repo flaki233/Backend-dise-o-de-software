@@ -1,9 +1,10 @@
-import { Body, Controller, Post, Get, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBody, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { Body, Controller, Post, Get, Query, Request, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBody, ApiQuery, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dtos/register.dto';
 import { LoginDto } from './dtos/login.dto';
 import { RecaptchaService } from '../recaptcha/recaptcha.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('Autenticación')
 @Controller('auth')
@@ -15,22 +16,44 @@ export class AuthController {
 
   // --- REGISTRO ---
   @Post('register')
-  @ApiOperation({ summary: 'Registrar un nuevo usuario' })
+  @ApiOperation({ summary: 'Registrar un nuevo usuario (envía código de verificación por email)' })
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
         email: { type: 'string', example: 'usuario@correo.com' },
         password: { type: 'string', example: '123456' },
+        name: { type: 'string', example: 'Usuario Nombre' },
         recaptchaToken: { type: 'string', example: 'token_recaptcha_v3' },
       },
       required: ['email', 'password', 'recaptchaToken'],
     },
   })
-  @ApiResponse({ status: 201, description: 'Usuario registrado correctamente' })
+  @ApiResponse({ status: 201, description: 'Usuario registrado, código enviado por email' })
   async register(@Body() dto: RegisterDto & { recaptchaToken: string }) {
     await this.recaptchaService.validateToken(dto.recaptchaToken);
     return this.authService.register(dto);
+  }
+
+  // --- REGISTRO DIRECTO (sin verificación) ---
+  @Post('register-direct')
+  @ApiOperation({ summary: 'Registrar usuario directo sin verificación (para desarrollo/pruebas)' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', example: 'test@example.com' },
+        password: { type: 'string', example: 'Test@12345' },
+        name: { type: 'string', example: 'Usuario Test' },
+        recaptchaToken: { type: 'string', example: 'test_token' },
+      },
+      required: ['email', 'password', 'recaptchaToken'],
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Usuario registrado sin verificación de email' })
+  async registerDirect(@Body() dto: RegisterDto & { recaptchaToken: string }) {
+    await this.recaptchaService.validateToken(dto.recaptchaToken);
+    return this.authService.registerDirect(dto);
   }
 
   // --- LOGIN ---
@@ -51,15 +74,6 @@ export class AuthController {
   async login(@Body() dto: LoginDto & { recaptchaToken: string }) {
     await this.recaptchaService.validateToken(dto.recaptchaToken);
     return this.authService.login(dto.email, dto.password);
-  }
-
-  // --- VERIFICAR CORREO ---
-  @Get('verify')
-  @ApiOperation({ summary: 'Verificar el correo electrónico del usuario' })
-  @ApiQuery({ name: 'token', type: String, description: 'Token de verificación enviado al correo' })
-  @ApiResponse({ status: 200, description: 'Correo verificado correctamente' })
-  async verify(@Query('token') token: string) {
-    return this.authService.verifyEmail(token);
   }
 
   // --- OLVIDÉ MI CONTRASEÑA ---
@@ -98,5 +112,54 @@ export class AuthController {
     @Body('newPassword') newPassword: string,
   ) {
     return this.authService.resetPassword(token, newPassword);
+  }
+
+  // --- VERIFICAR EMAIL ---
+  @Post('verify-email')
+  @ApiOperation({ summary: 'Verificar email con código de verificación' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', example: 'usuario@correo.com' },
+        code: { type: 'string', example: '123456' },
+      },
+      required: ['email', 'code'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Email verificado correctamente' })
+  async verifyEmail(
+    @Body('email') email: string,
+    @Body('code') code: string,
+  ) {
+    return this.authService.verifyEmail(email, code);
+  }
+
+  // --- REFRESH TOKEN ---
+  @Post('refresh-token')
+  @ApiOperation({ summary: 'Refrescar access token con refresh token' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        refreshToken: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5...' },
+      },
+      required: ['refreshToken'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Nuevo access token generado' })
+  async refreshToken(@Body('refreshToken') refreshToken: string) {
+    return this.authService.refreshAccessToken(refreshToken);
+  }
+
+  // --- LOGOUT ---
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cerrar sesión del usuario' })
+  @ApiResponse({ status: 200, description: 'Sesión cerrada correctamente' })
+  async logout(@Request() req: any) {
+    const token = req.user.robleToken;
+    return this.authService.logout(token);
   }
 }

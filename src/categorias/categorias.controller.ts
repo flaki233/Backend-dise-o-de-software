@@ -7,7 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
-  ParseIntPipe,
+  Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { CategoriasService } from './categorias.service';
@@ -30,11 +30,9 @@ export class CategoriasController {
   @ApiOperation({ summary: 'Obtener una categoría por ID (público)' })
   @ApiResponse({ status: 200, description: 'Categoría encontrada' })
   @ApiResponse({ status: 404, description: 'Categoría no encontrada' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id') id: string) {
     return this.categoriasService.findOne(id);
   }
-
-  // Las siguientes rutas requieren autenticación (solo admin en producción)
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -42,8 +40,8 @@ export class CategoriasController {
   @ApiOperation({ summary: 'Crear nueva categoría (requiere autenticación)' })
   @ApiResponse({ status: 201, description: 'Categoría creada' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
-  create(@Body() createCategoriaDto: CreateCategoriaDto) {
-    return this.categoriasService.create(createCategoriaDto);
+  create(@Body() createCategoriaDto: CreateCategoriaDto, @Req() req: any) {
+    return this.categoriasService.create(createCategoriaDto, req.user.robleToken);
   }
 
   @Patch(':id')
@@ -53,10 +51,11 @@ export class CategoriasController {
   @ApiResponse({ status: 200, description: 'Categoría actualizada' })
   @ApiResponse({ status: 404, description: 'Categoría no encontrada' })
   update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateCategoriaDto: CreateCategoriaDto,
+    @Req() req: any,
   ) {
-    return this.categoriasService.update(id, updateCategoriaDto);
+    return this.categoriasService.update(id, updateCategoriaDto, req.user.robleToken);
   }
 
   @Delete(':id')
@@ -65,8 +64,8 @@ export class CategoriasController {
   @ApiOperation({ summary: 'Eliminar categoría (requiere autenticación)' })
   @ApiResponse({ status: 200, description: 'Categoría eliminada' })
   @ApiResponse({ status: 404, description: 'Categoría no encontrada' })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.categoriasService.remove(id);
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.categoriasService.remove(id, req.user.robleToken);
   }
 }
 

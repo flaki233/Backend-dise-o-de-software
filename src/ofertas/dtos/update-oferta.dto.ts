@@ -1,6 +1,5 @@
-import { IsString, IsOptional, IsNumber, IsInt, IsEnum, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsNumber, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { OfferStatus } from '@prisma/client';
 
 export class UpdateOfertaDto {
   @ApiProperty({ description: 'Título de la oferta', example: 'Libro de JavaScript Moderno', required: false })
@@ -8,10 +7,10 @@ export class UpdateOfertaDto {
   @IsOptional()
   titulo?: string;
 
-  @ApiProperty({ description: 'ID de la categoría', example: 1, required: false })
-  @IsInt()
+  @ApiProperty({ description: 'ID de la categoría', example: 'abc123', required: false })
+  @IsString()
   @IsOptional()
-  categoriaId?: number;
+  categoriaId?: string;
 
   @ApiProperty({ 
     description: 'Condiciones del trueque', 
@@ -47,12 +46,12 @@ export class UpdateOfertaDto {
 
   @ApiProperty({ 
     description: 'Estado de la oferta', 
-    enum: OfferStatus,
+    enum: ['BORRADOR', 'PUBLICADA', 'PAUSADA'],
     example: 'PUBLICADA',
     required: false 
   })
-  @IsEnum(OfferStatus)
+  @IsString()
   @IsOptional()
-  status?: OfferStatus;
+  status?: string;
 }
 
