@@ -9,6 +9,8 @@ import { ExplorarModule } from './explorar/explorar.module';
 import { PropuestasModule } from './propuestas/propuestas.module';
 import { MatchAuditModule } from './match-audit/match-audit.module';
 import { ConfigModule } from '@nestjs/config';
+import { SuggestionsModule } from './suggestions/suggestions.module';
+import { BusquedaModule } from './busqueda/busqueda.module';
 
 @Module({
   imports: [
@@ -20,9 +22,10 @@ import { ConfigModule } from '@nestjs/config';
     AuthModule,
     UsersModule,
     TradesModule,
+    BusquedaModule,
     OfertasModule,
     CategoriasModule,
-    RobleModule,ExplorarModule,PropuestasModule, MatchAuditModule
+    RobleModule,ExplorarModule,PropuestasModule, MatchAuditModule,SuggestionsModule
   ],
 })
 export class AppModule {}
