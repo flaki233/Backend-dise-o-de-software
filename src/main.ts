@@ -43,6 +43,8 @@ async function bootstrap() {
   await app.listen(PORT);
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
   console.log(`📘 Swagger disponible en http://localhost:${PORT}/api/docs`);
+  console.log('[ENV] MOCK_ROBLE=', process.env.MOCK_ROBLE);
+
 }
 
 bootstrap();
