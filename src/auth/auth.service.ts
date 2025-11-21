@@ -121,8 +121,10 @@ export class AuthService {
       const existingUser = await this.robleRepo.findUserById(robleUser.id);
       if (!existingUser) {
         console.log('[Auth] Usuario no existe en Usuarios_Aplicacion, sincronizando...');
+        console.log('[Auth] robleUser.id:', robleUser.id);
+        console.log('[Auth] robleUser completo:', JSON.stringify(robleUser, null, 2));
         try {
-          await this.roble.insertRecord('Usuarios_Aplicacion', {
+          const syncedUser = await this.roble.insertRecord('Usuarios_Aplicacion', {
             userId: robleUser.id,
             email: robleUser.email,
             name: robleUser.name || email.split('@')[0],
@@ -131,10 +133,12 @@ export class AuthService {
             active: true,
             role: 'OFERENTE',
           });
-          console.log('[Auth] Usuario sincronizado durante login');
+          console.log('[Auth] Usuario sincronizado durante login:', syncedUser);
         } catch (syncError: any) {
           console.error('[Auth] Error sincronizando usuario durante login:', syncError.message);
         }
+      } else {
+        console.log('[Auth] Usuario ya existe en Usuarios_Aplicacion');
       }
 
       const payload = {

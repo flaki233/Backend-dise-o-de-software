@@ -67,10 +67,16 @@ export class RobleRepository {
 
   async findUserById(id: string): Promise<User | null> {
     try {
+      console.log(`[RobleRepo] Buscando usuario por userId: ${id}`);
       const records = await this.roble.getRecords('Usuarios_Aplicacion', { userId: id });
+      console.log(`[RobleRepo] Registros encontrados:`, records?.length || 0);
+      if (records && records.length > 0) {
+        console.log(`[RobleRepo] Usuario encontrado:`, records[0]);
+      }
       if (!records || records.length === 0) return null;
       return records[0];
     } catch (error) {
+      console.error(`[RobleRepo] Error buscando usuario:`, error);
       return null;
     }
   }

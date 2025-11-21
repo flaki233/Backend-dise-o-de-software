@@ -10,11 +10,17 @@ export class UsersService {
 
   // 🔹 Obtener perfil de usuario
   async getProfile(userId: any) {
+    console.log(`[UsersService] getProfile llamado con userId:`, userId, `(tipo: ${typeof userId})`);
     const userIdStr = typeof userId === 'number' ? String(userId) : userId;
+    console.log(`[UsersService] Buscando usuario con ID: ${userIdStr}`);
     const user = await this.robleRepo.findUserById(userIdStr);
 
-    if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (!user) {
+      console.error(`[UsersService] Usuario no encontrado para ID: ${userIdStr}`);
+      throw new NotFoundException('Usuario no encontrado');
+    }
     
+    console.log(`[UsersService] Usuario encontrado:`, user);
     const userData = user as any;
     return {
       id: userData.userId || userData._id,

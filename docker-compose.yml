@@ -15,6 +15,8 @@ services:
       RECAPTCHA_TEST: "true"
       ROBLE_API_URL: https://roble-api.openlab.uninorte.edu.co
       ROBLE_PROJECT_TOKEN: trueque_29b341a61b
+      MOCK_ROBLE: "false"
+      ROBLE_ACCESS_TOKEN: eyJhbGciOiJIUzI1NiIsInR5
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (res) => { process.exit(res.statusCode === 404 || res.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));"]
       interval: 10s
