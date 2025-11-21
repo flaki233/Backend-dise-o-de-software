@@ -1,0 +1,15 @@
+node_modules
+dist
+.git
+.env
+.env.local
+.DS_Store
+*.log
+coverage
+docker-compose.yml
+Dockerfile
+*.sql
+*.mwb
+scripts/
+backup_*.sql
+dump-*.sql

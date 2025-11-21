@@ -1,11 +1,23 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { ExpressAdapter } from '@nestjs/platform-express';
+import { AppModule } from '../src/app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as express from 'express';
+import type { Request, Response } from 'express';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+let cachedApp: express.Application | null = null;
+
+async function createApp() {
+  if (cachedApp) {
+    return cachedApp;
+  }
+
+  const expressApp = express();
+  const app = await NestFactory.create(
+    AppModule,
+    new ExpressAdapter(expressApp),
+  );
 
   app.enableCors({
     origin: true,
@@ -39,16 +51,13 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  const PORT = process.env.PORT || 3000;
-  await app.listen(PORT);
-  console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
-  console.log(`📘 Swagger disponible en http://localhost:${PORT}/api/docs`);
-  console.log('[ENV] MOCK_ROBLE=', process.env.MOCK_ROBLE);
-
+  await app.init();
+  
+  cachedApp = expressApp;
+  return expressApp;
 }
 
-if (require.main === module) {
-  bootstrap();
-}
-
-export default bootstrap;
+export default async (req: Request, res: Response) => {
+  const app = await createApp();
+  return app(req, res);
+};
