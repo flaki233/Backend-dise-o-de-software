@@ -57,39 +57,38 @@ function nowISO() {
 }
 
 @Injectable()
+@Injectable()
 export class SuggestionsService {
   constructor(private readonly roble: RobleService) {}
 
   private isMock() {
-    // Nos guiamos por la variable de entorno, igual que en otros servicios
     return process.env.MOCK_ROBLE === 'true';
   }
 
+  private readonly TABLE = 'Oferta';   // 👈 nombre EXACTO de la tabla en Roble
+
   /**
-   * Obtiene las ofertas creadas por el usuario (su "perfil").
+   * Ofertas creadas por el usuario (su “perfil”)
    */
   private async getUserOffers(userId: string): Promise<Oferta[]> {
     if (this.isMock()) {
       return MOCK_OFERTAS.filter((o) => o.userId === userId);
     }
 
-    const res = await this.roble.getRecords('oferta', { userId });
+    const res = await this.roble.getRecords(this.TABLE, { userId });
     const records = ((res as any).records ?? res ?? []) as Oferta[];
     return records;
   }
 
   /**
-   * Ofertas públicas de otros usuarios (candidatas a sugerencia).
+   * Ofertas públicas de otros usuarios (candidatas a sugerencia)
    */
-  private async getCandidateOffers(
-    excludeUserId: string,
-  ): Promise<Oferta[]> {
+  private async getCandidateOffers(excludeUserId: string): Promise<Oferta[]> {
     if (this.isMock()) {
       return MOCK_OFERTAS.filter((o) => o.userId !== excludeUserId);
     }
 
-    // Pedimos todas y filtramos en memoria (puedes refinar con filtros cuando ROBLE lo soporte)
-    const res = await this.roble.getRecords('oferta');
+    const res = await this.roble.getRecords(this.TABLE);
     const records = ((res as any).records ?? res ?? []) as Oferta[];
 
     return records.filter(
@@ -99,7 +98,7 @@ export class SuggestionsService {
         (o.status ?? 'PUBLICADA') === 'PUBLICADA',
     );
   }
-
+  
   /**
    * Dado el historial de ofertas del usuario, saca las categorías favoritas.
    */

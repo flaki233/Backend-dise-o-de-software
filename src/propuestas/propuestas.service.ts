@@ -65,9 +65,9 @@ export class PropuestasService {
         });
       }
 
-      if (!names.includes('PropuestaEvento')) {
+      if (!names.includes('matchaudit')) {
         await this.roble.createTable({
-          tableName: 'PropuestaEvento',
+          tableName: 'matchaudit',
           description: 'Auditoría de propuestas',
           columns: [
             { name: 'propuestaId', type: 'varchar' },
@@ -89,35 +89,36 @@ export class PropuestasService {
   }
 
   private async audit(
-    propuestaId: string,
-    actorId: string,
-    tipo: Evento['tipo'],
-    payload?: any,
-  ) {
-    const base = {
-      propuestaId,
-      actorId,
-      tipo,
-      payload, // JSON directo
-      createdAt: nowISO(),
-    };
+  propuestaId: string,
+  actorId: string,
+  tipo: Evento['tipo'],
+  payload?: any,
+) {
+  const base = {
+    propuestaId,
+    actorId,
+    tipo,
+    payload,
+    createdAt: nowISO(),
+  };
 
-    if (process.env.MOCK_ROBLE === 'true') {
-      const evento: Evento = { _id: this.genId('evt'), ...base };
-      MEM_EVENTS.push(evento);
-      return evento;
-    }
-
-    try {
-      // ROBLE genera _id automáticamente
-      const inserted = await this.roble.insertRecord('PropuestaEvento', base);
-      return inserted as Evento;
-    } catch (e: any) {
-      throw new ServiceUnavailableException(
-        `No se pudo registrar auditoría en ROBLE: ${e?.message ?? e}`,
-      );
-    }
+  if (process.env.MOCK_ROBLE === 'true') {
+    const evento: Evento = { _id: this.genId('evt'), ...base };
+    MEM_EVENTS.push(evento);
+    return evento;
   }
+
+  try {
+    // 💥 INSERTA EN LA TABLA CORRECTA: matchaudit 💥
+    const inserted = await this.roble.insertRecord('matchaudit', base);
+    return inserted as Evento;
+  } catch (e: any) {
+    throw new ServiceUnavailableException(
+      `No se pudo registrar auditoría en ROBLE: ${e?.message ?? e}`,
+    );
+  }
+}
+
 
   // ---------- API pública ----------
 
@@ -248,7 +249,7 @@ export class PropuestasService {
       );
     }
     try {
-      const r = await this.roble.getRecords('PropuestaEvento', {
+      const r = await this.roble.getRecords('matchaudit', {
         propuestaId: id,
       });
       const events = r.records ?? r ?? [];

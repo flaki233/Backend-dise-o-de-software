@@ -82,7 +82,7 @@ export class ExplorarService {
       // asume que ROBLE devuelve { records: [...] }
       data = (all as any).records || all || [];
     } catch (err: any) {
-      console.warn('[ExplorarService.list] ROBLE no respondió o sin token, usando MOCK.');
+      console.error('[ExplorarService.list] ERROR REAL DE ROBLE →', err.response?.data || err.message || err);
       data = MOCK_OFERTAS;
     }
 
@@ -150,7 +150,7 @@ export class ExplorarService {
       const list = (result as any).records || result || [];
       oferta = list[0];
     } catch (err: any) {
-      console.warn('[ExplorarService.findOne] ROBLE no respondió o sin token, usando MOCK.');
+      console.error('[ExplorarService.findOne] ERROR REAL DE ROBLE →', err.response?.data || err.message || err);
       oferta = MOCK_OFERTAS.find((o) => o._id === id);
     }
 

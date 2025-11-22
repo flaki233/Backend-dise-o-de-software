@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import axios, { AxiosRequestHeaders } from 'axios';
+import axios from 'axios';
 
 interface RobleColumn {
   name: string;
@@ -30,42 +30,48 @@ export class RobleService {
   private readonly apiUrl: string;
   private readonly projectToken: string;
   private accessToken: string;
-  private readonly isMock: boolean;
+  // 👇 ya NO es readonly, para poder cambiar según login
+  private isMock: boolean;
 
   constructor() {
-    this.apiUrl = process.env.ROBLE_API_URL || 'https://roble-api.openlab.uninorte.edu.co';
-    // Acepta ambos nombres por compatibilidad
-    this.projectToken =
-      process.env.ROBLE_PROJECT_TOKEN ||
-      process.env.ROBLE_TOKEN || // tu env antiguo
-      'trueque_29b341a61b';
+  this.apiUrl =
+    process.env.ROBLE_API_URL || 'https://roble-api.openlab.uninorte.edu.co';
 
-    this.accessToken = process.env.ROBLE_ACCESS_TOKEN || '';
+  this.projectToken =
+    process.env.ROBLE_PROJECT_TOKEN ||
+    process.env.ROBLE_TOKEN ||
+    'trueque_29b341a61b';
 
-    //  CAMBIO CLAVE:
-    // - Si MOCK_ROBLE = true  → MOCK
-    // - Si NO hay ROBLE_ACCESS_TOKEN → MOCK
-    // - Solo será REAL si MOCK_ROBLE = false y SÍ hay token
-    this.isMock = envBool('MOCK_ROBLE', true) || !this.accessToken;
+  // ⬇️ Empezamos SIN token: se setea solo cuando alguien hace login
+  this.accessToken = '';
 
-    // Log de diagnóstico al arranque (no imprime el token completo)
-    // eslint-disable-next-line no-console
-    console.log(
-      `[ROBLE] mode=${this.isMock ? 'MOCK' : 'REAL'} | project=${this.projectToken} | token=${mask(
-        this.accessToken,
-      )}`,
-    );
-  }
+  // ⬇️ El modo mock SOLO depende de MOCK_ROBLE
+  this.isMock = envBool('MOCK_ROBLE', true);
 
+  console.log(
+    `[ROBLE] mode=${this.isMock ? 'MOCK' : 'REAL'} | project=${
+      this.projectToken
+    } | token=${mask(this.accessToken)}`,
+  );
+}
 
+  // Lo llamas desde AuthService.login() con el token de ROBLE
   setAccessToken(token: string) {
     this.accessToken = token ?? '';
+
+    // Si MOCK_ROBLE está en false, usamos REAL con este token
+    if (!envBool('MOCK_ROBLE', false) && this.accessToken) {
+      this.isMock = false;
+      console.log('[ROBLE] Token seteado → usando modo REAL');
+    }
   }
 
   private requireAuth() {
     if (this.isMock) return; // en mock no exigimos token
     if (!this.accessToken) {
-      throw new Error('ROBLE_ACCESS_TOKEN ausente. Configure el JWT en el .env');
+      throw new Error(
+        'ROBLE_ACCESS_TOKEN ausente. Configure el JWT en el .env o use setAccessToken()',
+      );
     }
   }
 
@@ -81,21 +87,25 @@ export class RobleService {
 
   async createTable(data: CreateTableDto) {
     if (this.isMock) {
-      // En mock: simulamos éxito
       return { ok: true, mock: true, tableName: data.tableName };
     }
     const url = `${this.apiUrl}/database/${this.projectToken}/create-table`;
     try {
-      const { data: res } = await axios.post(url, data, { headers: this.getHeaders() });
+      const { data: res } = await axios.post(url, data, {
+        headers: this.getHeaders(),
+      });
       return res;
     } catch (error: any) {
-      throw new Error(`Error creando tabla en ROBLE: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error creando tabla en ROBLE: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 
   async insertRecord(tableName: string, data: Record<string, any>) {
     if (this.isMock) {
-      // Simulamos respuesta del insert
       return { inserted: [data], mock: true };
     }
     const url = `${this.apiUrl}/database/${this.projectToken}/insert`;
@@ -107,13 +117,17 @@ export class RobleService {
       );
       return res.inserted?.[0] || res;
     } catch (error: any) {
-      throw new Error(`Error insertando registro: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error insertando registro: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 
   async getRecords(tableName: string, filters?: Record<string, any>) {
     if (this.isMock) {
-      // Devuelve vacío en mock (los servicios de dominio suelen manejar su propio mock)
+      // Devuelve estructura compatible con ExplorarService
       return { records: [], mock: true };
     }
     const url = `${this.apiUrl}/database/${this.projectToken}/read`;
@@ -124,11 +138,19 @@ export class RobleService {
       });
       return data;
     } catch (error: any) {
-      throw new Error(`Error obteniendo registros: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error obteniendo registros: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 
-  async updateRecord(tableName: string, recordId: string, updates: Record<string, any>) {
+  async updateRecord(
+    tableName: string,
+    recordId: string,
+    updates: Record<string, any>,
+  ) {
     if (this.isMock) {
       return { updated: 1, id: recordId, mock: true, updates };
     }
@@ -141,7 +163,11 @@ export class RobleService {
       );
       return data;
     } catch (error: any) {
-      throw new Error(`Error actualizando registro: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error actualizando registro: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 
@@ -157,7 +183,11 @@ export class RobleService {
       });
       return data;
     } catch (error: any) {
-      throw new Error(`Error eliminando registro: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error eliminando registro: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 
@@ -170,7 +200,11 @@ export class RobleService {
       const { data } = await axios.get(url, { headers: this.getHeaders() });
       return data;
     } catch (error: any) {
-      throw new Error(`Error listando tablas: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error listando tablas: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 
@@ -182,7 +216,11 @@ export class RobleService {
       const { data } = await axios.post(url, { email, password, name });
       return data;
     } catch (error: any) {
-      throw new Error(`Error en signup: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error en signup: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 
@@ -192,7 +230,11 @@ export class RobleService {
       const { data } = await axios.post(url, { email, password, name });
       return data;
     } catch (error: any) {
-      throw new Error(`Error en signup directo: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error en signup directo: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 
@@ -202,7 +244,11 @@ export class RobleService {
       const { data } = await axios.post(url, { email, code });
       return data;
     } catch (error: any) {
-      throw new Error(`Error verificando email: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error verificando email: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 
@@ -212,7 +258,11 @@ export class RobleService {
       const { data } = await axios.post(url, { email, password });
       return data;
     } catch (error: any) {
-      throw new Error(`Error en login: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error en login: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 
@@ -222,7 +272,11 @@ export class RobleService {
       const { data } = await axios.post(url, { refreshToken });
       return data;
     } catch (error: any) {
-      throw new Error(`Error refrescando token: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error refrescando token: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 
@@ -232,7 +286,11 @@ export class RobleService {
       const { data } = await axios.post(url, { email });
       return data;
     } catch (error: any) {
-      throw new Error(`Error en forgot password: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error en forgot password: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 
@@ -242,28 +300,44 @@ export class RobleService {
       const { data } = await axios.post(url, { token, newPassword });
       return data;
     } catch (error: any) {
-      throw new Error(`Error reseteando password: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error reseteando password: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 
   async logout(accessToken?: string) {
     const url = `${this.apiUrl}/auth/${this.projectToken}/logout`;
     try {
-      const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : this.getHeaders();
+      const headers = accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : this.getHeaders();
       const { data } = await axios.post(url, null, { headers });
       return data;
     } catch (error: any) {
-      throw new Error(`Error en logout: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error en logout: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 
   async verifyToken(token: string) {
     const url = `${this.apiUrl}/auth/${this.projectToken}/verify-token`;
     try {
-      const { data } = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
+      const { data } = await axios.get(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       return data;
     } catch (error: any) {
-      throw new Error(`Error verificando token: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Error verificando token: ${
+          error.response?.data?.message || error.message
+        }`,
+      );
     }
   }
 }

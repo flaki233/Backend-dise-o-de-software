@@ -29,9 +29,10 @@ export class PropuestasController {
 
   @Patch(':id/cancel')
   @ApiOperation({ summary: 'Cancelar propuesta (mientras esté PENDIENTE)' })
-  cancel(@Param('id') id: string, @Query('actorId') actorId: string) {
+  cancel(@Param('id') id: string,@Body('actorId') actorId: string) {
     return this.svc.cancel(id, actorId);
   }
+
 
   @Get(':id/auditoria')
   @ApiOperation({ summary: 'Historial de eventos/auditoría de la propuesta' })

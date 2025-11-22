@@ -78,6 +78,7 @@ export class RobleRepository {
   async createUser(data: Partial<User>): Promise<User> {
     const userData = {
       ...data,
+      userId: data.id,
       reputationScore: data.reputationScore ?? 0,
       tradesClosed: data.tradesClosed ?? 0,
       active: data.active ?? true,

@@ -1,30 +1,70 @@
+// src/match-audit/dtos/list-match-audit.query.dto.ts
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
-import { Transform } from 'class-transformer';
-import { MatchAction, MatchStatus } from './create-match-audit.dto';
+import { IsOptional, IsString, IsInt, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class ListMatchAuditQueryDto {
-  @ApiPropertyOptional() @IsOptional() @Transform(({value}) => Number(value)) @IsNumber()
-  page?: number = 1;
+  @ApiPropertyOptional({
+    description: 'Filtrar por ID de propuesta (columna propuestaId)',
+    example: '1p4PV3AyN9Avu',
+  })
+  @IsOptional()
+  @IsString()
+  propuestaId?: string;
 
-  @ApiPropertyOptional() @IsOptional() @Transform(({value}) => Number(value)) @IsNumber()
-  pageSize?: number = 20;
+  @ApiPropertyOptional({
+    description: 'Filtrar por actorId (quién hizo la acción)',
+    example: 'user-123',
+  })
+  @IsOptional()
+  @IsString()
+  actorId?: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsString() actorUserId?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() proposerOfferId?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() responderOfferId?: string;
+  @ApiPropertyOptional({
+    description: 'Filtrar por tipo de evento',
+    enum: ['CREADA', 'DECISION', 'CANCELADA'],
+    example: 'CREADA',
+  })
+  @IsOptional()
+  @IsString()
+  tipo?: string;
 
-  @ApiPropertyOptional({ enum: MatchAction })  @IsOptional() @IsEnum(MatchAction)
-  action?: MatchAction;
+  @ApiPropertyOptional({
+    description: 'Desde esta fecha (ISO)',
+    example: '2025-11-22T00:00:00.000Z',
+  })
+  @IsOptional()
+  @IsString()
+  from?: string;
 
-  @ApiPropertyOptional({ enum: MatchStatus })  @IsOptional() @IsEnum(MatchStatus)
-  statusAfter?: MatchStatus;
+  @ApiPropertyOptional({
+    description: 'Hasta esta fecha (ISO)',
+    example: '2025-11-24T23:59:59.999Z',
+  })
+  @IsOptional()
+  @IsString()
+  to?: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsString() correlationId?: string;
+  @ApiPropertyOptional({
+    description: 'Número de página',
+    default: 1,
+    minimum: 1,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
 
-  @ApiPropertyOptional({ description: 'ISO date (YYYY-MM-DD)' })
-  @IsOptional() @IsString() from?: string;
-
-  @ApiPropertyOptional({ description: 'ISO date (YYYY-MM-DD)' })
-  @IsOptional() @IsString() to?: string;
+  @ApiPropertyOptional({
+    description: 'Tamaño de página',
+    default: 20,
+    minimum: 1,
+    maximum: 100,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  pageSize?: number;
 }

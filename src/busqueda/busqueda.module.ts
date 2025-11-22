@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { BusquedaController } from './busqueda.controller';
 import { BusquedaService } from './busqueda.service';
+import { RobleModule } from '../roble/roble.module';
 
 @Module({
-  imports: [HttpModule],
+  imports: [HttpModule,RobleModule],
   controllers: [BusquedaController],
   providers: [BusquedaService],
   exports: [BusquedaService],

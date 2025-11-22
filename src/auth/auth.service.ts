@@ -114,9 +114,9 @@ export class AuthService {
         throw new UnauthorizedException('Error de autenticación con ROBLE');
       }
 
-      const robleUser = robleResponse.user;
 
       this.roble.setAccessToken(robleResponse.accessToken);
+      const robleUser = robleResponse.user;
       
       const existingUser = await this.robleRepo.findUserById(robleUser.id);
       if (!existingUser) {

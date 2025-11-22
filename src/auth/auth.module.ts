@@ -11,9 +11,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   imports: [
     RobleModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '1h' },
+
+    JwtModule.registerAsync({
+      useFactory: () => ({
+        secret: process.env.JWT_SECRET,
+        signOptions: { expiresIn: '1h' },
+      }),
     }),
   ],
   controllers: [AuthController],
@@ -25,4 +28,3 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   exports: [PassportModule, JwtModule],
 })
 export class AuthModule {}
-
